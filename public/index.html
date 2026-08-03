@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPA Imzalama</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 500px; margin: 40px auto; padding: 20px; }
+        label { display: block; margin: 10px 0 4px; }
+        input, button { width: 100%; padding: 10px; margin-bottom: 10px; }
+        #result { margin-top: 20px; padding: 10px; background: #f0f0f0; word-break: break-all; }
+        .error { color: red; }
+        a { display: block; margin: 6px 0; }
+    </style>
+</head>
+<body>
+    <h1>IPA Imzalama Aracı</h1>
+    <form id="signForm" enctype="multipart/form-data">
+        <label>IPA Dosyası (.ipa)</label>
+        <input type="file" name="ipa" accept=".ipa" required>
+        
+        <label>P12 Sertifika (.p12)</label>
+        <input type="file" name="p12" accept=".p12" required>
+        
+        <label>MobileProvision (.mobileprovision)</label>
+        <input type="file" name="mobileprovision" accept=".mobileprovision" required>
+        
+        <label>P12 Parolası (varsa)</label>
+        <input type="text" name="password" placeholder="Parola (boş bırakılabilir)">
+        
+        <button type="submit">İmzala ve İndir</button>
+    </form>
+
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('signForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = 'İmzalanıyor, lütfen bekleyin...';
+
+            const formData = new FormData();
+            formData.append('ipa', document.querySelector('input[name=ipa]').files[0]);
+            formData.append('p12', document.querySelector('input[name=p12]').files[0]);
+            formData.append('mobileprovision', document.querySelector('input[name=mobileprovision]').files[0]);
+            formData.append('password', document.querySelector('input[name=password]').value);
+
+            try {
+                const response = await fetch('/sign', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+
+                if (!response.ok || data.error) {
+                    resultDiv.innerHTML = `<span class="error">Hata: ${data.error}</span>`;
+                } else {
+                    resultDiv.innerHTML = `
+                        <strong>Başarılı!</strong><br>
+                        <a href="${data.download_url}">📥 IPA Dosyasını İndir</a><br>
+                        <small>OTA Kurulum Linki (Safari'de açın):</small><br>
+                        <a href="${data.ota_install_link}">📱 Cihaza Kur</a>
+                    `;
+                }
+            } catch (err) {
+                resultDiv.innerHTML = `<span class="error">Bağlantı hatası: ${err.message}</span>`;
+            }
+        });
+    </script>
+</body>
+</html>
