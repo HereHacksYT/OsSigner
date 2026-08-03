@@ -13,15 +13,14 @@ const PORT = process.env.PORT || 3000;
 const ZSIGN_URL = 'https://github.com/zhlynn/zsign/releases/download/v1.1.3/zsign_linux_amd64.zip';
 const ZSIGN_PATH = path.join(__dirname, 'zsign');
 
-// Geçici dosyalar için
 const TMP_DIR = path.join(__dirname, 'tmp');
 if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR);
 
 const upload = multer({ storage: multer.memoryStorage() });
 
-// --- zsign'ı hazırla ---
+// --- zsign'ı hazırla (sağlam sürüm) ---
 async function ensureZsign() {
-  // Zaten varsa ve çalıştırılabilirse dokunma
+  // Zaten varsa ve çalıştırılabilirse direkt geç
   try {
     fs.accessSync(ZSIGN_PATH, fs.constants.X_OK);
     console.log('✅ zsign zaten mevcut.');
@@ -29,25 +28,70 @@ async function ensureZsign() {
   } catch (e) {}
 
   console.log('⏬ zsign indiriliyor...');
+
   return new Promise((resolve, reject) => {
     https.get(ZSIGN_URL, (res) => {
-      const chunks = [];
-      res.on('data', (chunk) => chunks.push(chunk));
-      res.on('end', () => {
-        try {
-          const buffer = Buffer.concat(chunks);
-          const zip = new AdmZip(buffer);
-          zip.extractEntryTo('zsign', __dirname, false, true);
-          fs.chmodSync(ZSIGN_PATH, 0o755);
-          console.log('🎉 zsign hazır.');
-          resolve();
-        } catch (err) {
-          reject(new Error('zsign çıkarılamadı: ' + err.message));
-        }
-      });
-      res.on('error', reject);
+      // Yönlendirme varsa takip et
+      if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+        console.log(`↪️ Yönlendirme: ${res.headers.location}`);
+        https.get(res.headers.location, (redirectRes) => {
+          downloadZip(redirectRes).then(resolve).catch(reject);
+        }).on('error', reject);
+        return;
+      }
+
+      if (res.statusCode !== 200) {
+        return reject(new Error(`İndirme hatası: HTTP ${res.statusCode}`));
+      }
+
+      downloadZip(res).then(resolve).catch(reject);
     }).on('error', reject);
   });
+
+  async function downloadZip(response) {
+    const chunks = [];
+    response.on('data', (chunk) => chunks.push(chunk));
+    response.on('end', () => {
+      try {
+        const buffer = Buffer.concat(chunks);
+        const zip = new AdmZip(buffer);
+
+        // ZIP içindeki tüm girişleri listele
+        const entries = zip.getEntries();
+        console.log('ZIP içeriği:', entries.map(e => e.entryName));
+
+        // 'zsign' adlı dosyayı bul
+        const zsignEntry = entries.find(e => e.entryName === 'zsign');
+        if (!zsignEntry) {
+          throw new Error('ZIP içinde "zsign" dosyası bulunamadı.');
+        }
+
+        // Dosyayı geçici bir klasöre çıkar, sonra hedefe taşı
+        const tmpExtractDir = path.join(__dirname, 'zsign_extract');
+        if (!fs.existsSync(tmpExtractDir)) fs.mkdirSync(tmpExtractDir);
+
+        zip.extractAllTo(tmpExtractDir, true);
+        const extractedPath = path.join(tmpExtractDir, 'zsign');
+
+        if (!fs.existsSync(extractedPath)) {
+          throw new Error('Çıkarılan dosya mevcut değil.');
+        }
+
+        // Hedefe taşı
+        fs.renameSync(extractedPath, ZSIGN_PATH);
+        fs.chmodSync(ZSIGN_PATH, 0o755);
+
+        // Geçici klasörü temizle
+        fs.rmSync(tmpExtractDir, { recursive: true, force: true });
+
+        console.log('🎉 zsign başarıyla hazırlandı.');
+        resolve();
+      } catch (err) {
+        reject(new Error('zsign çıkarılamadı: ' + err.message));
+      }
+    });
+    response.on('error', reject);
+  }
 }
 
 // --- Temizlik planlayıcı ---
@@ -59,7 +103,7 @@ function scheduleCleanup(id) {
       fs.rmSync(dir, { recursive: true, force: true });
     }
     cleanupMap.delete(id);
-  }, 10 * 60 * 1000)); // 10 dk
+  }, 10 * 60 * 1000));
 }
 
 // --- Route'lar ---
