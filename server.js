@@ -15,7 +15,6 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(express.static('public'));
 
-// Temizlik (10 dakika sonra sil)
 const cleanupMap = new Map();
 function scheduleCleanup(id) {
   cleanupMap.set(id, setTimeout(() => {
@@ -50,7 +49,7 @@ app.post('/sign', upload.fields([
     fs.writeFileSync(p12Path, req.files['p12'][0].buffer);
     fs.writeFileSync(mpPath, req.files['mobileprovision'][0].buffer);
 
-    // zsign komutu (binary zaten /usr/local/bin/zsign)
+    // zsign artık proje kökünde, ./zsign olarak çağrılıyor
     const zsignArgs = [
       '-k', p12Path,
       '-p', password,
@@ -59,7 +58,7 @@ app.post('/sign', upload.fields([
       ipaPath
     ];
 
-    execFile('/usr/local/bin/zsign', zsignArgs, { timeout: 60000 }, (error, stdout, stderr) => {
+    execFile('./zsign', zsignArgs, { timeout: 60000 }, (error, stdout, stderr) => {
       scheduleCleanup(jobId);
       if (error) {
         console.error('zsign hatası:', stderr || error.message);
