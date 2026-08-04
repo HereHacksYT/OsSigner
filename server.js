@@ -11,10 +11,10 @@ const PORT = process.env.PORT || 3000;
 const TMP_DIR = path.join(__dirname, 'tmp');
 if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR);
 
-// Sabit sertifika yolları (GitHub'a yüklenen dosyalar)
-const DEFAULT_P12_PATH = path.join(__dirname, 'cert.p12');
-const DEFAULT_MP_PATH = path.join(__dirname, 'app.mobileprovision');
-const DEFAULT_PASSWORD = ''; // Şifre varsa buraya yaz, yoksa boş kalsın
+// Hazır sertifika ayarları
+const DEFAULT_P12_PATH = path.join(__dirname, 'certs', 'cert.p12');
+const DEFAULT_MP_PATH = path.join(__dirname, 'certs', 'app.mobileprovision');
+const DEFAULT_PASSWORD = 'NexCerts';
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -44,7 +44,6 @@ app.post('/sign', upload.fields([
     let p12Buffer, mpBuffer, password;
 
     if (useDefault) {
-      // GitHub'daki dosyaları oku
       if (!fs.existsSync(DEFAULT_P12_PATH) || !fs.existsSync(DEFAULT_MP_PATH)) {
         return res.status(500).json({ error: 'Sunucuda hazır sertifika dosyaları bulunamadı.' });
       }
