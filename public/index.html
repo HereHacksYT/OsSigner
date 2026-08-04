@@ -1,56 +1,208 @@
 <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IPA İmzalama Servisi</title>
+  <title>IPA Sideload & Sign</title>
   <style>
-    body { font-family: sans-serif; max-width: 500px; margin: 40px auto; padding: 20px; }
-    .field { margin-bottom: 15px; }
-    label { display: block; margin-bottom: 5px; font-weight: bold; }
-    input[type="file"], input[type="password"] { width: 100%; }
-    button { padding: 10px 20px; background: #0070f3; color: white; border: none; border-radius: 5px; cursor: pointer; }
-    #result { margin-top: 20px; font-weight: bold; }
+    body {
+      background: #0d0d0d url('background.jpg') no-repeat center center fixed;
+      background-size: cover;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 500px;
+      background: rgba(20, 20, 20, 0.85);
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      margin-bottom: 20px;
+    }
+
+    h1, h2 {
+      text-align: center;
+      margin-top: 0;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 14px;
+      color: #ccc;
+    }
+
+    input[type="file"],
+    input[type="text"],
+    input[type="password"],
+    input[type="url"] {
+      width: 100%;
+      padding: 10px;
+      background: rgba(40, 40, 40, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 8px;
+      color: #fff;
+      box-sizing: border-box;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      background: #007aff;
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      font-weight: bold;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+
+    .divider {
+      text-align: center;
+      margin: 12px 0;
+      color: #777;
+      font-size: 12px;
+    }
+
+    .app-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .app-card {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 12px;
+      text-align: center;
+      cursor: pointer;
+      transition: transform 0.2s, background 0.2s;
+    }
+
+    .app-card:hover {
+      transform: translateY(-2px);
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .app-card img {
+      width: 48px;
+      height: 48px;
+      border-radius: 10px;
+      margin-bottom: 6px;
+    }
+
+    .app-card span {
+      display: block;
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    #status {
+      margin-top: 16px;
+      text-align: center;
+      font-size: 14px;
+      word-break: break-word;
+    }
   </style>
 </head>
 <body>
-  <h2>IPA Imzalayici</h2>
-  <form id="signForm">
-    <div class="field">
-      <label>IPA Dosyasi (Zorunlu):</label>
-      <input type="file" name="ipa" accept=".ipa" required>
+
+  <div class="container">
+    <h1>IPA İmzalama</h1>
+    <form id="signForm">
+      <div class="form-group">
+        <label>IPA Dosyası Seç</label>
+        <input type="file" id="ipaFile" accept=".ipa">
+      </div>
+
+      <div class="divider">VEYA DIREKT URL GIRIN</div>
+
+      <div class="form-group">
+        <label>IPA İndirme Bağlantısı (URL)</label>
+        <input type="url" id="ipaUrl" placeholder="https://site.com/uygulama.ipa">
+      </div>
+
+      <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">
+
+      <div class="form-group">
+        <label>Özel Sertifika (.p12) [Opsiyonel]</label>
+        <input type="file" id="certFile" accept=".p12">
+      </div>
+
+      <div class="form-group">
+        <label>Sertifika Şifresi</label>
+        <input type="password" id="password" placeholder="Varsayılan: NexCerts">
+      </div>
+
+      <div class="form-group">
+        <label>Mobil Provision (.mobileprovision) [Opsiyonel]</label>
+        <input type="file" id="provFile" accept=".mobileprovision">
+      </div>
+
+      <button type="submit">İmzala ve Hazırla</button>
+    </form>
+    <div id="status"></div>
+  </div>
+
+  <div class="container">
+    <h2>Uygulama Mağazası</h2>
+    <div class="app-grid">
+      <div class="app-card" onclick="selectApp('https://raw.githubusercontent.com/kullanici/repo/main/ornek.ipa')">
+        <img src="https://via.placeholder.com/48" alt="App">
+        <span>Örnek App 1</span>
+      </div>
     </div>
-    
-    <hr>
-    <p><small>Kendi sertifikanizi yuklemezseniz varsayilan sertifika kullanilir.</small></p>
-
-    <div class="field">
-      <label>Sertifika (.p12) - İsteğe Bağlı:</label>
-      <input type="file" name="cert" accept=".p12">
-    </div>
-
-    <div class="field">
-      <label>Provision Profil (.mobileprovision) - İsteğe Bağlı:</label>
-      <input type="file" name="provision" accept=".mobileprovision">
-    </div>
-
-    <div class="field">
-      <label>Sertifika Şifresi:</label>
-      <input type="password" name="password" placeholder="Özel sertifika şifreniz">
-    </div>
-
-    <button type="submit">İmzala</button>
-  </form>
-
-  <div id="result"></div>
+  </div>
 
   <script>
+    function selectApp(url) {
+      document.getElementById('ipaUrl').value = url;
+      document.getElementById('ipaFile').value = '';
+      alert('Uygulama URL\'si seçildi! Sayfadaki "İmzala" butonuna basarak işleme devam edebilirsiniz.');
+    }
+
     document.getElementById('signForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const resultDiv = document.getElementById('result');
-      resultDiv.innerText = 'Dosya işleniyor ve imzalanıyor...';
+      const statusDiv = document.getElementById('status');
+      statusDiv.style.color = '#fff';
+      statusDiv.innerText = 'İşlem başlatılıyor...';
 
-      const formData = new FormData(e.target);
+      const formData = new FormData();
+      const ipaFile = document.getElementById('ipaFile').files[0];
+      const ipaUrl = document.getElementById('ipaUrl').value;
+      const certFile = document.getElementById('certFile').files[0];
+      const provFile = document.getElementById('provFile').files[0];
+      const password = document.getElementById('password').value;
+
+      if (ipaFile) formData.append('ipa', ipaFile);
+      if (ipaUrl) formData.append('ipaUrl', ipaUrl);
+      if (certFile) formData.append('cert', certFile);
+      if (provFile) formData.append('provision', provFile);
+      if (password) formData.append('password', password);
 
       try {
         const response = await fetch('/sign', {
@@ -61,12 +213,15 @@
         const data = await response.json();
 
         if (response.ok) {
-          resultDiv.innerHTML = `<span style="color:green">${data.message}</span><br><a href="${data.downloadUrl}" download>İmzalanmış IPA'yı İndir</a>`;
+          statusDiv.style.color = '#4cd964';
+          statusDiv.innerHTML = `${data.message} <br><a href="${data.downloadUrl}" style="color:#007aff; font-weight:bold;">[ İmzalı IPA'yı İndir ]</a>`;
         } else {
-          resultDiv.innerHTML = `<span style="color:red">Hata: ${data.error}</span>`;
+          statusDiv.style.color = '#ff3b30';
+          statusDiv.innerText = `Hata: ${data.error} ${data.details || ''}`;
         }
       } catch (err) {
-        resultDiv.innerHTML = '<span style="color:red">Bir bağlantı hatası oluştu.</span>';
+        statusDiv.style.color = '#ff3b30';
+        statusDiv.innerText = 'Sunucuyla bağlantı kurulamadı.';
       }
     });
   </script>
