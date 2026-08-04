@@ -25,16 +25,17 @@ const DEFAULT_PROV = path.join(__dirname, 'certs/default.mobileprovision');
 app.use(express.static('public'));
 app.use('/download', express.static(signedDir));
 
-// Yönlendirmeleri (Redirect) otomatik takip eden URL indirme fonksiyonu
+// Yönlendirmeleri (301, 302, 307, 308) eksiksiz takip eden gelişmiş indirme fonksiyonu
 function downloadFile(url, dest) {
   return new Promise((resolve, reject) => {
     const client = url.startsWith('https') ? https : http;
     client.get(url, (response) => {
+      // Yönlendirme varsa yeni URL'yi takip et
       if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
         return downloadFile(response.headers.location, dest).then(resolve).catch(reject);
       }
       if (response.statusCode !== 200) {
-        return reject(new Error(`İndirme başarısız oldu. HTTP Kodu: ${response.statusCode}`));
+        return reject(new Error(`İndirme başarısız. HTTP Kodu: ${response.statusCode}`));
       }
       const file = fs.createWriteStream(dest);
       response.pipe(file);
@@ -80,7 +81,7 @@ app.post('/sign', upload.fields([
       }
 
       res.json({
-        message: 'İmzalama tamamlandı!',
+        message: 'İmzalama başarıyla tamamlandı!',
         downloadUrl: `/download/${outputFileName}`
       });
     });
