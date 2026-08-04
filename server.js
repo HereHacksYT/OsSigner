@@ -16,7 +16,6 @@ const DEFAULT_MP_PATH = path.join(__dirname, 'app.mobileprovision');
 const DEFAULT_PASSWORD = 'NexCerts';
 
 const upload = multer({ storage: multer.memoryStorage() });
-
 app.use(express.static('public'));
 
 const cleanupMap = new Map();
@@ -38,10 +37,8 @@ app.post('/sign', upload.fields([
     if (!req.files['ipa']) {
       return res.status(400).json({ error: 'IPA dosyası zorunludur.' });
     }
-
     const useDefault = req.body.use_default === '1';
     let p12Buffer, mpBuffer, password;
-
     if (useDefault) {
       if (!fs.existsSync(DEFAULT_P12_PATH) || !fs.existsSync(DEFAULT_MP_PATH)) {
         return res.status(500).json({ error: 'Sunucuda hazır sertifika bulunamadı.' });
