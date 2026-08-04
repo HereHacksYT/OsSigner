@@ -1,83 +1,74 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IPA İmzalama</title>
-    <style>
-        :root { --bg: rgba(255,255,255,0.9); --text: #111; --input-bg: #fff; --button-bg: #007aff; --button-text: #fff; --border: #ccc; }
-        body.dark { --bg: rgba(30,30,30,0.9); --text: #eee; --input-bg: #333; --button-bg: #0a84ff; --border: #555; }
-        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: url('https://i.ibb.co/YBk9CMP4/MG-4507.jpg') no-repeat center center fixed; background-size: cover; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
-        .container { background: var(--bg); color: var(--text); padding: 30px 25px; border-radius: 20px; width: 90%; max-width: 460px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); backdrop-filter: blur(15px); position: relative; }
-        .theme-btn { position: absolute; top: 15px; right: 20px; background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text); padding: 0; }
-        h1 { text-align: center; margin-top: 0; font-weight: 500; }
-        label { display: block; margin: 12px 0 4px; font-weight: 500; }
-        input[type="file"], input[type="text"] { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--input-bg); color: var(--text); box-sizing: border-box; margin-bottom: 8px; }
-        button[type="submit"] { width: 100%; padding: 14px; background: var(--button-bg); color: var(--button-text); border: none; border-radius: 14px; font-size: 18px; font-weight: 600; cursor: pointer; margin-top: 10px; }
-        .cert-option { display: flex; gap: 15px; margin-bottom: 15px; justify-content: center; }
-        .cert-option label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal; }
-        #custom-fields { display: none; }
-        #result { margin-top: 20px; padding: 12px; border-radius: 12px; background: var(--input-bg); word-break: break-all; font-size: 14px; }
-        .error { color: #ff3b30; } a { color: #007aff; display: block; margin: 6px 0; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IPA İmzalama Servisi</title>
+  <style>
+    body { font-family: sans-serif; max-width: 500px; margin: 40px auto; padding: 20px; }
+    .field { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 5px; font-weight: bold; }
+    input[type="file"], input[type="password"] { width: 100%; }
+    button { padding: 10px 20px; background: #0070f3; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    #result { margin-top: 20px; font-weight: bold; }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <button class="theme-btn" id="themeToggle" title="Tema değiştir">🌙</button>
-        <h1>📱 IPA İmzalama</h1>
-        <div class="cert-option">
-            <label><input type="radio" name="certMode" value="default" checked> Hazır Sertifika</label>
-            <label><input type="radio" name="certMode" value="custom"> Kendi Sertifikam</label>
-        </div>
-        <form id="signForm" enctype="multipart/form-data">
-            <label>IPA Dosyası (.ipa)</label>
-            <input type="file" name="ipa" accept=".ipa" required>
-            <div id="custom-fields">
-                <label>P12 Sertifika (.p12)</label>
-                <input type="file" name="p12" accept=".p12">
-                <label>MobileProvision (.mobileprovision)</label>
-                <input type="file" name="mobileprovision" accept=".mobileprovision">
-                <label>P12 Parolası</label>
-                <input type="text" name="password" placeholder="Parola">
-            </div>
-            <button type="submit">İmzala ve İndir</button>
-        </form>
-        <div id="result"></div>
+  <h2>IPA Imzalayici</h2>
+  <form id="signForm">
+    <div class="field">
+      <label>IPA Dosyasi (Zorunlu):</label>
+      <input type="file" name="ipa" accept=".ipa" required>
     </div>
-    <script>
-        const body = document.body, toggle = document.getElementById('themeToggle');
-        const customFields = document.getElementById('custom-fields');
-        const radioDefault = document.querySelector('input[value="default"]');
-        const radioCustom = document.querySelector('input[value="custom"]');
-        function setTheme(dark) { body.classList.toggle('dark', dark); toggle.textContent = dark ? '☀️' : '🌙'; }
-        setTheme(false);
-        toggle.addEventListener('click', () => setTheme(!body.classList.contains('dark')));
-        function toggleCustom() { customFields.style.display = radioCustom.checked ? 'block' : 'none'; }
-        radioDefault.addEventListener('change', toggleCustom);
-        radioCustom.addEventListener('change', toggleCustom);
-        toggleCustom();
-        document.getElementById('signForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const resultDiv = document.getElementById('result');
-            resultDiv.innerHTML = '⏳ İmzalanıyor...';
-            const formData = new FormData();
-            formData.append('ipa', document.querySelector('input[name=ipa]').files[0]);
-            if (radioCustom.checked) {
-                formData.append('p12', document.querySelector('input[name=p12]').files[0]);
-                formData.append('mobileprovision', document.querySelector('input[name=mobileprovision]').files[0]);
-                formData.append('password', document.querySelector('input[name=password]').value);
-            } else {
-                formData.append('use_default', '1');
-            }
-            try {
-                const res = await fetch('/sign', { method: 'POST', body: formData });
-                const data = await res.json();
-                if (!res.ok || data.error) resultDiv.innerHTML = `<span class="error">Hata: ${data.error}</span>`;
-                else resultDiv.innerHTML = `<strong>✅ Başarılı!</strong><br><a href="${data.download_url}">📥 İndir</a><br><small>📲 OTA:</small><br><a href="${data.ota_install_link}">📱 Cihaza Kur</a>`;
-            } catch (err) {
-                resultDiv.innerHTML = `<span class="error">Bağlantı hatası: ${err.message}</span>`;
-            }
+    
+    <hr>
+    <p><small>Kendi sertifikanizi yuklemezseniz varsayilan sertifika kullanilir.</small></p>
+
+    <div class="field">
+      <label>Sertifika (.p12) - İsteğe Bağlı:</label>
+      <input type="file" name="cert" accept=".p12">
+    </div>
+
+    <div class="field">
+      <label>Provision Profil (.mobileprovision) - İsteğe Bağlı:</label>
+      <input type="file" name="provision" accept=".mobileprovision">
+    </div>
+
+    <div class="field">
+      <label>Sertifika Şifresi:</label>
+      <input type="password" name="password" placeholder="Özel sertifika şifreniz">
+    </div>
+
+    <button type="submit">İmzala</button>
+  </form>
+
+  <div id="result"></div>
+
+  <script>
+    document.getElementById('signForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const resultDiv = document.getElementById('result');
+      resultDiv.innerText = 'Dosya işleniyor ve imzalanıyor...';
+
+      const formData = new FormData(e.target);
+
+      try {
+        const response = await fetch('/sign', {
+          method: 'POST',
+          body: formData
         });
-    </script>
+
+        const data = await response.json();
+
+        if (response.ok) {
+          resultDiv.innerHTML = `<span style="color:green">${data.message}</span><br><a href="${data.downloadUrl}" download>İmzalanmış IPA'yı İndir</a>`;
+        } else {
+          resultDiv.innerHTML = `<span style="color:red">Hata: ${data.error}</span>`;
+        }
+      } catch (err) {
+        resultDiv.innerHTML = '<span style="color:red">Bir bağlantı hatası oluştu.</span>';
+      }
+    });
+  </script>
 </body>
 </html>
