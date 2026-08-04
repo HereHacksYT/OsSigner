@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
+    "postinstall": "apt-get update && apt-get install -y curl unzip && curl -L https://github.com/zhlynn/zsign/releases/download/v1.1.3/zsign_linux_amd64.zip -o zsign.zip && unzip -o zsign.zip && chmod +x zsign && rm zsign.zip",
     "start": "node server.js"
   },
   "dependencies": {
