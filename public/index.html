@@ -5,75 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IPA İmzalama</title>
     <style>
-        :root {
-            --bg: rgba(255,255,255,0.9);
-            --text: #111;
-            --input-bg: #fff;
-            --button-bg: #007aff;
-            --button-text: #fff;
-            --border: #ccc;
-        }
-        body.dark {
-            --bg: rgba(30,30,30,0.9);
-            --text: #eee;
-            --input-bg: #333;
-            --button-bg: #0a84ff;
-            --border: #555;
-        }
-        body {
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-            background: url('https://i.ibb.co/YBk9CMP4/MG-4507.jpg') no-repeat center center fixed;
-            background-size: cover;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            transition: background 0.3s;
-        }
-        .container {
-            background: var(--bg);
-            color: var(--text);
-            padding: 30px 25px;
-            border-radius: 20px;
-            width: 90%;
-            max-width: 460px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-            backdrop-filter: blur(15px);
-            position: relative;
-            transition: background 0.3s, color 0.3s;
-        }
-        .theme-btn {
-            position: absolute;
-            top: 15px;
-            right: 20px;
-            background: none;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            color: var(--text);
-            padding: 0;
-            line-height: 1;
-        }
+        :root { --bg: rgba(255,255,255,0.9); --text: #111; --input-bg: #fff; --button-bg: #007aff; --button-text: #fff; --border: #ccc; }
+        body.dark { --bg: rgba(30,30,30,0.9); --text: #eee; --input-bg: #333; --button-bg: #0a84ff; --border: #555; }
+        body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: url('https://i.ibb.co/YBk9CMP4/MG-4507.jpg') no-repeat center center fixed; background-size: cover; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+        .container { background: var(--bg); color: var(--text); padding: 30px 25px; border-radius: 20px; width: 90%; max-width: 460px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); backdrop-filter: blur(15px); position: relative; }
+        .theme-btn { position: absolute; top: 15px; right: 20px; background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text); padding: 0; }
         h1 { text-align: center; margin-top: 0; font-weight: 500; }
         label { display: block; margin: 12px 0 4px; font-weight: 500; }
-        input[type="file"], input[type="text"] {
-            width: 100%; padding: 10px; border: 1px solid var(--border);
-            border-radius: 10px; background: var(--input-bg); color: var(--text);
-            box-sizing: border-box; margin-bottom: 8px;
-        }
-        button[type="submit"] {
-            width: 100%; padding: 14px; background: var(--button-bg);
-            color: var(--button-text); border: none; border-radius: 14px;
-            font-size: 18px; font-weight: 600; cursor: pointer; margin-top: 10px;
-        }
+        input[type="file"], input[type="text"] { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--input-bg); color: var(--text); box-sizing: border-box; margin-bottom: 8px; }
+        button[type="submit"] { width: 100%; padding: 14px; background: var(--button-bg); color: var(--button-text); border: none; border-radius: 14px; font-size: 18px; font-weight: 600; cursor: pointer; margin-top: 10px; }
         .cert-option { display: flex; gap: 15px; margin-bottom: 15px; justify-content: center; }
         .cert-option label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: normal; }
         #custom-fields { display: none; }
         #result { margin-top: 20px; padding: 12px; border-radius: 12px; background: var(--input-bg); word-break: break-all; font-size: 14px; }
-        .error { color: #ff3b30; }
-        a { color: #007aff; display: block; margin: 6px 0; }
+        .error { color: #ff3b30; } a { color: #007aff; display: block; margin: 6px 0; }
     </style>
 </head>
 <body>
@@ -104,19 +49,13 @@
         const customFields = document.getElementById('custom-fields');
         const radioDefault = document.querySelector('input[value="default"]');
         const radioCustom = document.querySelector('input[value="custom"]');
-
-        function setTheme(dark) {
-            body.classList.toggle('dark', dark);
-            toggle.textContent = dark ? '☀️' : '🌙';
-        }
+        function setTheme(dark) { body.classList.toggle('dark', dark); toggle.textContent = dark ? '☀️' : '🌙'; }
         setTheme(false);
         toggle.addEventListener('click', () => setTheme(!body.classList.contains('dark')));
-
         function toggleCustom() { customFields.style.display = radioCustom.checked ? 'block' : 'none'; }
         radioDefault.addEventListener('change', toggleCustom);
         radioCustom.addEventListener('change', toggleCustom);
         toggleCustom();
-
         document.getElementById('signForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const resultDiv = document.getElementById('result');
