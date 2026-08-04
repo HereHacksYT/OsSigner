@@ -11,9 +11,8 @@ const PORT = process.env.PORT || 3000;
 const TMP_DIR = path.join(__dirname, 'tmp');
 if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR);
 
-// GÜNCELLENDİ: certs klasörü ve şifre
-const DEFAULT_P12_PATH = path.join(__dirname, 'certs', 'cert.p12');
-const DEFAULT_MP_PATH = path.join(__dirname, 'certs', 'app.mobileprovision');
+const DEFAULT_P12_PATH = path.join(__dirname, 'cert.p12');
+const DEFAULT_MP_PATH = path.join(__dirname, 'app.mobileprovision');
 const DEFAULT_PASSWORD = 'NexCerts';
 
 const upload = multer({ storage: multer.memoryStorage() });
@@ -45,7 +44,7 @@ app.post('/sign', upload.fields([
 
     if (useDefault) {
       if (!fs.existsSync(DEFAULT_P12_PATH) || !fs.existsSync(DEFAULT_MP_PATH)) {
-        return res.status(500).json({ error: 'Sunucuda hazır sertifika dosyaları bulunamadı.' });
+        return res.status(500).json({ error: 'Sunucuda hazır sertifika bulunamadı.' });
       }
       p12Buffer = fs.readFileSync(DEFAULT_P12_PATH);
       mpBuffer = fs.readFileSync(DEFAULT_MP_PATH);
@@ -72,32 +71,16 @@ app.post('/sign', upload.fields([
     fs.writeFileSync(p12Path, p12Buffer);
     fs.writeFileSync(mpPath, mpBuffer);
 
-    const zsignArgs = [
-      '-k', p12Path,
-      '-p', password,
-      '-m', mpPath,
-      '-o', outputIpaPath,
-      ipaPath
-    ];
-
-    execFile('./zsign', zsignArgs, { timeout: 60000 }, (error, stdout, stderr) => {
+    execFile('./zsign', ['-k', p12Path, '-p', password, '-m', mpPath, '-o', outputIpaPath, ipaPath], { timeout: 60000 }, (error, stdout, stderr) => {
       scheduleCleanup(jobId);
       if (error) {
         console.error('zsign hatası:', stderr || error.message);
         return res.status(500).json({ error: 'İmzalama başarısız: ' + (stderr || error.message) });
       }
-
-      console.log('zsign başarılı:', stdout);
       const baseUrl = `${req.protocol}://${req.get('host')}`;
       const downloadUrl = `${baseUrl}/download/${jobId}`;
       const manifestUrl = `${baseUrl}/manifest/${jobId}`;
-
-      res.json({
-        success: true,
-        download_url: downloadUrl,
-        manifest_url: manifestUrl,
-        ota_install_link: `itms-services://?action=download-manifest&url=${encodeURIComponent(manifestUrl)}`
-      });
+      res.json({ success: true, download_url: downloadUrl, manifest_url: manifestUrl, ota_install_link: `itms-services://?action=download-manifest&url=${encodeURIComponent(manifestUrl)}` });
     });
   } catch (err) {
     console.error(err);
@@ -118,35 +101,7 @@ app.get('/manifest/:id', (req, res) => {
   const ipaUrl = `${baseUrl}/download/${req.params.id}`;
   const manifest = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>items</key>
-    <array>
-        <dict>
-            <key>assets</key>
-            <array>
-                <dict>
-                    <key>kind</key>
-                    <string>software-package</string>
-                    <key>url</key>
-                    <string>${ipaUrl}</string>
-                </dict>
-            </array>
-            <key>metadata</key>
-            <dict>
-                <key>bundle-identifier</key>
-                <string>com.example.signedapp</string>
-                <key>bundle-version</key>
-                <string>1.0</string>
-                <key>kind</key>
-                <string>software</string>
-                <key>title</key>
-                <string>Signed App</string>
-            </dict>
-        </dict>
-    </array>
-</dict>
-</plist>`;
+<plist version="1.0"><dict><key>items</key><array><dict><key>assets</key><array><dict><key>kind</key><string>software-package</string><key>url</key><string>${ipaUrl}</string></dict></array><key>metadata</key><dict><key>bundle-identifier</key><string>com.example.signedapp</string><key>bundle-version</key><string>1.0</string><key>kind</key><string>software</string><key>title</key><string>Signed App</string></dict></dict></array></dict></plist>`;
   res.set('Content-Type', 'text/xml');
   res.send(manifest);
 });
