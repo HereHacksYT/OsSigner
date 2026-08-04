@@ -11,6 +11,11 @@ const PORT = process.env.PORT || 3000;
 const TMP_DIR = path.join(__dirname, 'tmp');
 if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR);
 
+// Ortam değişkenlerinden hazır sertifika (base64)
+const DEFAULT_P12_BASE64 = process.env.DEFAULT_P12_BASE64 || '';
+const DEFAULT_MP_BASE64 = process.env.DEFAULT_MOBILEPROVISION_BASE64 || '';
+const DEFAULT_PASSWORD = process.env.DEFAULT_PASSWORD || '';
+
 const upload = multer({ storage: multer.memoryStorage() });
 
 app.use(express.static('public'));
@@ -31,11 +36,33 @@ app.post('/sign', upload.fields([
   { name: 'password' }
 ]), async (req, res) => {
   try {
-    if (!req.files['ipa'] || !req.files['p12'] || !req.files['mobileprovision']) {
-      return res.status(400).json({ error: 'Eksik dosya. ipa, p12 ve mobileprovision zorunludur.' });
+    // IPA zorunlu
+    if (!req.files['ipa']) {
+      return res.status(400).json({ error: 'IPA dosyası zorunludur.' });
     }
 
-    const password = req.body.password || '';
+    const useDefault = req.body.use_default === '1';
+
+    let p12Buffer, mpBuffer, password;
+
+    if (useDefault) {
+      // Ortam değişkenlerinden oku
+      if (!DEFAULT_P12_BASE64 || !DEFAULT_MP_BASE64) {
+        return res.status(500).json({ error: 'Sunucuda hazır sertifika tanımlanmamış.' });
+      }
+      p12Buffer = Buffer.from(DEFAULT_P12_BASE64, 'base64');
+      mpBuffer = Buffer.from(DEFAULT_MP_BASE64, 'base64');
+      password = DEFAULT_PASSWORD;
+    } else {
+      // Kullanıcı yüklemesi
+      if (!req.files['p12'] || !req.files['mobileprovision']) {
+        return res.status(400).json({ error: 'P12 ve MobileProvision dosyaları gerekli.' });
+      }
+      p12Buffer = req.files['p12'][0].buffer;
+      mpBuffer = req.files['mobileprovision'][0].buffer;
+      password = req.body.password || '';
+    }
+
     const jobId = uuidv4();
     const jobDir = path.join(TMP_DIR, jobId);
     fs.mkdirSync(jobDir, { recursive: true });
@@ -46,10 +73,9 @@ app.post('/sign', upload.fields([
     const outputIpaPath = path.join(jobDir, 'signed.ipa');
 
     fs.writeFileSync(ipaPath, req.files['ipa'][0].buffer);
-    fs.writeFileSync(p12Path, req.files['p12'][0].buffer);
-    fs.writeFileSync(mpPath, req.files['mobileprovision'][0].buffer);
+    fs.writeFileSync(p12Path, p12Buffer);
+    fs.writeFileSync(mpPath, mpBuffer);
 
-    // zsign artık proje kökünde, ./zsign olarak çağrılıyor
     const zsignArgs = [
       '-k', p12Path,
       '-p', password,
