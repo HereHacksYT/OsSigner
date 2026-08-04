@@ -11,7 +11,6 @@ const PORT = process.env.PORT || 3000;
 const TMP_DIR = path.join(__dirname, 'tmp');
 if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR);
 
-// Hazır sertifika ayarları
 const DEFAULT_P12_PATH = path.join(__dirname, 'certs', 'cert.p12');
 const DEFAULT_MP_PATH = path.join(__dirname, 'certs', 'app.mobileprovision');
 const DEFAULT_PASSWORD = 'NexCerts';
@@ -45,7 +44,7 @@ app.post('/sign', upload.fields([
 
     if (useDefault) {
       if (!fs.existsSync(DEFAULT_P12_PATH) || !fs.existsSync(DEFAULT_MP_PATH)) {
-        return res.status(500).json({ error: 'Sunucuda hazır sertifika dosyaları bulunamadı.' });
+        return res.status(500).json({ error: 'Sunucuda hazır sertifika bulunamadı.' });
       }
       p12Buffer = fs.readFileSync(DEFAULT_P12_PATH);
       mpBuffer = fs.readFileSync(DEFAULT_MP_PATH);
@@ -72,13 +71,7 @@ app.post('/sign', upload.fields([
     fs.writeFileSync(p12Path, p12Buffer);
     fs.writeFileSync(mpPath, mpBuffer);
 
-    const zsignArgs = [
-      '-k', p12Path,
-      '-p', password,
-      '-m', mpPath,
-      '-o', outputIpaPath,
-      ipaPath
-    ];
+    const zsignArgs = ['-k', p12Path, '-p', password, '-m', mpPath, '-o', outputIpaPath, ipaPath];
 
     execFile('./zsign', zsignArgs, { timeout: 60000 }, (error, stdout, stderr) => {
       scheduleCleanup(jobId);
@@ -87,7 +80,7 @@ app.post('/sign', upload.fields([
         return res.status(500).json({ error: 'İmzalama başarısız: ' + (stderr || error.message) });
       }
 
-      console.log('zsign başarılı:', stdout);
+      console.log('zsign başarılı');
       const baseUrl = `${req.protocol}://${req.get('host')}`;
       const downloadUrl = `${baseUrl}/download/${jobId}`;
       const manifestUrl = `${baseUrl}/manifest/${jobId}`;
