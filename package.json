@@ -1,8 +1,10 @@
 {
+{
   "name": "ipa-signer",
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
+    "postinstall": "node download-zsign.js",
     "start": "node server.js"
   },
   "dependencies": {
