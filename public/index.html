@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<!DOCTYPE html>
 <html lang="tr">
 <head>
   <meta charset="UTF-8">
@@ -171,35 +170,77 @@
   <div class="container">
     <h2>Uygulama Mağazası</h2>
     <div class="app-grid">
-      <div class="app-card" onclick="selectApp('https://raw.githubusercontent.com/kullanici/repo/main/ornek.ipa')">
-        <img src="https://via.placeholder.com/48" alt="App">
-        <span>Örnek App 1</span>
+      <!-- Verilen Dropbox linki entegre edildi -->
+      <div class="app-card" onclick="selectAndSignApp('https://www.dropbox.com/scl/fi/awnz7l5c6aw279wdcllxx/Subway-Surf-Hacked-OsmanBurda.ipa?rlkey=27lhqxfrl525wj7haelwh5ett&st=pd5qs7ou&e=1&dl=1')">
+        <img src="https://via.placeholder.com/48" alt="Subway Surfers">
+        <span>Subway Surfers</span>
       </div>
     </div>
   </div>
 
   <script>
-    function selectApp(url) {
+    // Mağazadaki karta basınca OTOMATİK İNDİR VE İMZALA fonksiyonu
+    async function selectAndSignApp(url) {
       document.getElementById('ipaUrl').value = url;
       document.getElementById('ipaFile').value = '';
-      alert('Uygulama URL\'si seçildi! Sayfadaki "İmzala" butonuna basarak işleme devam edebilirsiniz.');
+      
+      const statusDiv = document.getElementById('status');
+      statusDiv.style.color = '#fff';
+      statusDiv.innerText = 'Uygulama sunucuya indiriliyor ve imzalanıyor, lütfen bekleyin...';
+
+      const formData = new FormData();
+      formData.append('ipaUrl', url);
+
+      const certFile = document.getElementById('certFile').files[0];
+      const provFile = document.getElementById('provFile').files[0];
+      const password = document.getElementById('password').value;
+
+      if (certFile) formData.append('cert', certFile);
+      if (provFile) formData.append('provision', provFile);
+      if (password) formData.append('password', password);
+
+      try {
+        const response = await fetch('/sign', {
+          method: 'POST',
+          body: formData
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          statusDiv.style.color = '#4cd964';
+          statusDiv.innerHTML = `${data.message} <br><a href="${data.downloadUrl}" style="color:#007aff; font-weight:bold;">[ İmzalı IPA'yı İndir ]</a>`;
+        } else {
+          statusDiv.style.color = '#ff3b30';
+          statusDiv.innerText = `Hata: ${data.error} ${data.details || ''}`;
+        }
+      } catch (err) {
+        statusDiv.style.color = '#ff3b30';
+        statusDiv.innerText = 'Sunucuyla bağlantı kurulamadı.';
+      }
     }
 
+    // Form manuel gönderildiğinde çalışan fonksiyon
     document.getElementById('signForm').addEventListener('submit', async (e) => {
       e.preventDefault();
+      const ipaFile = document.getElementById('ipaFile').files[0];
+      const ipaUrl = document.getElementById('ipaUrl').value;
+
+      if (ipaUrl && !ipaFile) {
+        selectAndSignApp(ipaUrl);
+        return;
+      }
+
       const statusDiv = document.getElementById('status');
       statusDiv.style.color = '#fff';
       statusDiv.innerText = 'İşlem başlatılıyor...';
 
       const formData = new FormData();
-      const ipaFile = document.getElementById('ipaFile').files[0];
-      const ipaUrl = document.getElementById('ipaUrl').value;
       const certFile = document.getElementById('certFile').files[0];
       const provFile = document.getElementById('provFile').files[0];
       const password = document.getElementById('password').value;
 
       if (ipaFile) formData.append('ipa', ipaFile);
-      if (ipaUrl) formData.append('ipaUrl', ipaUrl);
       if (certFile) formData.append('cert', certFile);
       if (provFile) formData.append('provision', provFile);
       if (password) formData.append('password', password);
