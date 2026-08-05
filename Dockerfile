@@ -1,28 +1,26 @@
 FROM node:18-bullseye
 
-# Derleme araçlarını ve CMake kütüphanesini yükle
+# Derleme için gerekli paketleri yükle
 RUN apt-get update && apt-get install -y \
     git \
     g++ \
     make \
-    cmake \
+    pkg-config \
     libssl-dev \
     libzip-dev \
+    zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# zsign reposunu klonla ve CMake ile hatasız derle
+# zsign reposunu klonla ve Linux build dizininde Makefile ile derle
 RUN git clone https://github.com/zhlynn/zsign.git /opt/zsign \
-    && cd /opt/zsign \
-    && mkdir build \
-    && cd build \
-    && cmake .. \
+    && cd /opt/zsign/build/linux \
     && make \
     && cp zsign /usr/local/bin/
 
-# Uygulama dizini
+# Uygulama çalışma dizini
 WORKDIR /usr/src/app
 
-# Bağımlılıkları yükle
+# Node.js bağımlılıklarını yükle
 COPY package*.json ./
 RUN npm install
 
