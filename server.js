@@ -103,10 +103,22 @@ app.post('/api/sign', upload.fields([
             return res.status(500).json({ error: 'Sertifika (.p12) veya Mobileprovision dosyası bulunamadı!' });
         }
 
+        // 3. P12 Şifreleme Düzeltmesi (Legacy P12 -> Modern P12 Otomatik Dönüştürme)
+        const pemPath = path.join(workDir, 'temp.pem');
+        const fixedP12Path = path.join(workDir, 'fixed.p12');
+        
+        const convertCmd = `(openssl pkcs12 -in "${p12Path}" -nodes -passin pass:"${password}" -legacy -out "${pemPath}" 2>/dev/null || openssl pkcs12 -in "${p12Path}" -nodes -passin pass:"${password}" -out "${pemPath}") && openssl pkcs12 -export -in "${pemPath}" -out "${fixedP12Path}" -passout pass:"${password}"`;
+
+        await new Promise((resolve) => {
+            exec(convertCmd, () => resolve()); // Başarısız olursa orijinal P12 ile devam eder
+        });
+
+        const finalP12Path = (await fs.pathExists(fixedP12Path)) ? fixedP12Path : p12Path;
+
+        // 4. IPA İçeriğini Çıkar
         const extractDir = path.join(workDir, 'extracted');
         await fs.ensureDir(extractDir);
 
-        // 3. IPA İçeriğini Çıkar
         await new Promise((resolve, reject) => {
             exec(`unzip -q "${inputIpaPath}" -d "${extractDir}"`, (err) => err ? reject(err) : resolve());
         });
@@ -115,12 +127,11 @@ app.post('/api/sign', upload.fields([
         const apps = await fs.readdir(payloadDir);
         const appBundle = path.join(payloadDir, apps[0]);
 
-        // 4. Mobileprovision Dosyasını Paket İçine Kopyala
+        // 5. Mobileprovision Dosyasını Paket İçine Kopyala
         await fs.copy(provPath, path.join(appBundle, 'embedded.mobileprovision'));
 
-        // 5. rcodesign ile İmzalama İşlemi
-        const certPassword = password || '';
-        const signCmd = `rcodesign sign --p12-file "${p12Path}" --p12-password "${certPassword}" "${appBundle}"`;
+        // 6. rcodesign ile İmzalama İşlemi
+        const signCmd = `rcodesign sign --p12-file "${finalP12Path}" --p12-password "${password}" "${appBundle}"`;
         
         await new Promise((resolve, reject) => {
             exec(signCmd, (err, stdout, stderr) => {
@@ -132,7 +143,7 @@ app.post('/api/sign', upload.fields([
             });
         });
 
-        // 6. Dosyayı Tekrar IPA Olarak Paketle
+        // 7. Dosyayı Tekrar IPA Olarak Paketle
         const outputIpaName = `signed_${Date.now()}.ipa`;
         const outputIpaPath = path.join(__dirname, 'output', outputIpaName);
         
