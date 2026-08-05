@@ -1,96 +1,105 @@
 const express = require('express');
 const multer = require('multer');
-const { exec } = require('child_process');
+const Applesign = require('applesign');
 const path = require('path');
-const fs = require('fs');
+const fs = require('fs-extra');
 const https = require('https');
-const http = require('http');
 
 const app = express();
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-const uploadDir = path.join(__dirname, 'uploads');
-const signedDir = path.join(__dirname, 'signed');
-[uploadDir, signedDir].forEach(dir => {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-});
-
-const upload = multer({ dest: 'uploads/' });
-
-const DEFAULT_CERT = path.join(__dirname, 'certs/default.p12');
-const DEFAULT_PASS = 'NexCerts';
-const DEFAULT_PROV = path.join(__dirname, 'certs/default.mobileprovision');
-
-app.use(express.static('public'));
-app.use('/download', express.static(signedDir));
-
-// Yönlendirmeleri (301, 302, 307, 308) eksiksiz takip eden gelişmiş indirme fonksiyonu
-function downloadFile(url, dest) {
-  return new Promise((resolve, reject) => {
-    const client = url.startsWith('https') ? https : http;
-    client.get(url, (response) => {
-      // Yönlendirme varsa yeni URL'yi takip et
-      if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
-        return downloadFile(response.headers.location, dest).then(resolve).catch(reject);
-      }
-      if (response.statusCode !== 200) {
-        return reject(new Error(`İndirme başarısız. HTTP Kodu: ${response.statusCode}`));
-      }
-      const file = fs.createWriteStream(dest);
-      response.pipe(file);
-      file.on('finish', () => file.close(resolve));
-    }).on('error', (err) => reject(err));
-  });
-}
-
-app.post('/sign', upload.fields([
-  { name: 'ipa', maxCount: 1 },
-  { name: 'cert', maxCount: 1 },
-  { name: 'provision', maxCount: 1 }
-]), async (req, res) => {
-  let ipaPath = '';
-  const remoteIpaUrl = req.body.ipaUrl;
-
-  try {
-    if (req.files && req.files.ipa && req.files.ipa[0]) {
-      ipaPath = req.files.ipa[0].path;
-    } else if (remoteIpaUrl) {
-      ipaPath = path.join(uploadDir, `remote_${Date.now()}.ipa`);
-      await downloadFile(remoteIpaUrl, ipaPath);
-    } else {
-      return res.status(400).json({ error: 'Lütfen bir IPA dosyası yükleyin veya geçerli bir URL girin.' });
-    }
-
-    const certPath = (req.files && req.files.cert) ? req.files.cert[0].path : DEFAULT_CERT;
-    const provPath = (req.files && req.files.provision) ? req.files.provision[0].path : DEFAULT_PROV;
-    const certPass = req.body.password || DEFAULT_PASS;
-
-    const outputFileName = `signed_${Date.now()}.ipa`;
-    const outputPath = path.join(signedDir, outputFileName);
-
-    const cmd = `zsign -k "${certPath}" -p "${certPass}" -m "${provPath}" -o "${outputPath}" "${ipaPath}"`;
-
-    exec(cmd, (error, stdout, stderr) => {
-      if (fs.existsSync(ipaPath)) fs.unlinkSync(ipaPath);
-      if (req.files && req.files.cert && fs.existsSync(certPath)) fs.unlinkSync(certPath);
-      if (req.files && req.files.provision && fs.existsSync(provPath)) fs.unlinkSync(provPath);
-
-      if (error) {
-        return res.status(500).json({ error: 'İmzalama başarısız.', details: stderr });
-      }
-
-      res.json({
-        message: 'İmzalama başarıyla tamamlandı!',
-        downloadUrl: `/download/${outputFileName}`
-      });
-    });
-
-  } catch (err) {
-    if (ipaPath && fs.existsSync(ipaPath)) fs.unlinkSync(ipaPath);
-    res.status(500).json({ error: 'Uzak IPA indirilemedi.', details: err.message });
-  }
-});
-
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`Sunucu ${PORT} portunda aktif.`));
+
+app.use(express.json());
+app.use(express.static('public')); // Frontend dosyaları için (index.html vb.)
+
+// Yüklemeler için geçici klasörler
+const upload = multer({ dest: 'uploads/' });
+fs.ensureDirSync('uploads');
+fs.ensureDirSync('output');
+
+// Direct Dropbox/Remote URL İndirme Fonksiyonu
+const downloadFile = (url, targetPath) => {
+    return new Promise((resolve, reject) => {
+        const file = fs.createWriteStream(targetPath);
+        https.get(url, (response) => {
+            // Dropbox ve yönlendirme (redirect) takibi
+            if (response.statusCode === 301 || response.statusCode === 302) {
+                return downloadFile(response.headers.location, targetPath).then(resolve).catch(reject);
+            }
+            if (response.statusCode !== 200) {
+                return reject(new Error(`İndirme başarısız: HTTP Status ${response.statusCode}`));
+            }
+            response.pipe(file);
+            file.on('finish', () => {
+                file.close(resolve);
+            });
+        }).on('error', (err) => {
+            fs.unlink(targetPath, () => {});
+            reject(err);
+        });
+    });
+};
+
+// İmzalama API Uç Noktası
+app.post('/api/sign', upload.fields([
+    { name: 'ipa', maxCount: 1 },
+    { name: 'p12', maxCount: 1 },
+    { name: 'mobileprovision', maxCount: 1 }
+]), async (req, res) => {
+    let inputIpaPath = '';
+    
+    try {
+        // 1. IPA Kaynağını Belirle (Dosya Yükleme veya Remote URL)
+        if (req.files && req.files.ipa) {
+            inputIpaPath = req.files.ipa[0].path;
+        } else if (req.body.ipaUrl) {
+            inputIpaPath = path.join('uploads', `remote_${Date.now()}.ipa`);
+            await downloadFile(req.body.ipaUrl, inputIpaPath);
+        } else {
+            return res.status(400).json({ error: 'IPA dosyası veya geçerli bir URL zorunludur.' });
+        }
+
+        // Sertifika Kontrolü
+        if (!req.files || !req.files.p12 || !req.files.mobileprovision) {
+            return res.status(400).json({ error: '.p12 ve .mobileprovision dosyaları zorunludur.' });
+        }
+
+        const p12Path = req.files.p12[0].path;
+        const provPath = req.files.mobileprovision[0].path;
+        const p12Password = req.body.password || '';
+
+        const outputIpaName = `signed_${Date.now()}.ipa`;
+        const outputIpaPath = path.join('output', outputIpaName);
+
+        // 2. Applesign Konfigürasyonu ve İmzalama İşlemi
+        const signer = new Applesign({
+            file: inputIpaPath,
+            out: outputIpaPath,
+            identity: p12Path,
+            passphrase: p12Password,
+            mobileprovision: provPath,
+            runpass: true
+        });
+
+        await signer.sign();
+
+        // 3. Başarılı Yanıt ve İndirme Bağlantısı
+        const downloadUrl = `${req.protocol}://${req.get('host')}/download/${outputIpaName}`;
+        
+        res.json({
+            success: true,
+            message: 'İmzalama tamamlandı!',
+            downloadUrl: downloadUrl
+        });
+
+    } catch (err) {
+        console.error('İmzalama Hatası:', err);
+        res.status(500).json({ error: 'İmzalama sırasında bir hata oluştu: ' + err.message });
+    }
+});
+
+// İmzalanan Dosyaları Sunma
+app.use('/download', express.static(path.join(__dirname, 'output')));
+
+app.listen(PORT, () => {
+    console.log(`Sunucu ${PORT} portunda aktif.`);
+});
