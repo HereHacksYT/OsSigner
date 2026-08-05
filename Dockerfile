@@ -1,6 +1,6 @@
 FROM node:18-bullseye
 
-# Gerekli derleme araçlarını ve kütüphaneleri yükle
+# Derleme araçlarını ve CMake kütüphanesini yükle
 RUN apt-get update && apt-get install -y \
     git \
     g++ \
@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y \
     libzip-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# zsign reposunu klonla ve CMake ile standart derleme yap
+# zsign reposunu klonla ve CMake ile hatasız derle
 RUN git clone https://github.com/zhlynn/zsign.git /opt/zsign \
     && cd /opt/zsign \
     && mkdir build \
@@ -19,7 +19,7 @@ RUN git clone https://github.com/zhlynn/zsign.git /opt/zsign \
     && make \
     && cp zsign /usr/local/bin/
 
-# Uygulama çalışma dizini
+# Uygulama dizini
 WORKDIR /usr/src/app
 
 # Bağımlılıkları yükle
