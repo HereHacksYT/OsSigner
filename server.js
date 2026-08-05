@@ -16,7 +16,7 @@ const upload = multer({ dest: 'uploads/' });
 fs.ensureDirSync('uploads');
 fs.ensureDirSync('output');
 
-// URL'den IPA indirme fonksiyonu (Yönlendirmeleri destekler)
+// URL'den IPA indirme fonksiyonu
 const downloadFile = (url, targetPath) => {
     return new Promise((resolve, reject) => {
         const client = url.startsWith('https') ? https : http;
@@ -37,6 +37,36 @@ const downloadFile = (url, targetPath) => {
     });
 };
 
+// certs/ klasöründeki dosyaları otomatik tespit eden yardımcı fonksiyon
+const getDefaultCertFiles = async () => {
+    const certsDir = path.join(__dirname, 'certs');
+    let p12Path = '';
+    let provPath = '';
+    let defaultPassword = 'NexCerts';
+
+    if (await fs.pathExists(certsDir)) {
+        const files = await fs.readdir(certsDir);
+        
+        // Klasördeki .p12 ve .mobileprovision uzantılı ilk dosyaları bulur
+        const p12File = files.find(f => f.endsWith('.p12'));
+        const provFile = files.find(f => f.endsWith('.mobileprovision'));
+        const passFile = files.find(f => f === 'password.txt');
+
+        if (p12File) p12Path = path.join(certsDir, p12File);
+        if (provFile) provPath = path.join(certsDir, provFile);
+        
+        // password.txt varsa şifreyi oradan okur
+        if (passFile) {
+            const content = await fs.readFile(path.join(certsDir, passFile), 'utf-8');
+            if (content.trim()) {
+                defaultPassword = content.trim();
+            }
+        }
+    }
+
+    return { p12Path, provPath, defaultPassword };
+};
+
 app.post('/api/sign', upload.fields([
     { name: 'ipa', maxCount: 1 },
     { name: 'p12', maxCount: 1 },
@@ -48,7 +78,7 @@ app.post('/api/sign', upload.fields([
     try {
         await fs.ensureDir(workDir);
 
-        // 1. IPA Kaynağını Belirle (Dosya Yükleme veya URL)
+        // 1. IPA Kaynağını Belirle
         if (req.files && req.files.ipa) {
             inputIpaPath = req.files.ipa[0].path;
         } else if (req.body.ipaUrl) {
@@ -58,16 +88,22 @@ app.post('/api/sign', upload.fields([
             return res.status(400).json({ error: 'Lütfen bir IPA dosyası yükleyin veya geçerli bir URL girin.' });
         }
 
-        // 2. Sertifika Dosyalarının Yollarını Ayarla
+        // 2. Varsayılan Sertifika Bilgilerini Otomatik Tara
+        const defaultCerts = await getDefaultCertFiles();
+
         const p12Path = (req.files && req.files.p12) 
             ? req.files.p12[0].path 
-            : path.join(__dirname, 'certs', 'default.p12');
+            : defaultCerts.p12Path;
             
         const provPath = (req.files && req.files.mobileprovision) 
             ? req.files.mobileprovision[0].path 
-            : path.join(__dirname, 'certs', 'default.mobileprovision');
+            : defaultCerts.provPath;
             
-        const password = req.body.password || 'NexCerts';
+        const password = req.body.password || defaultCerts.defaultPassword;
+
+        if (!p12Path || !provPath) {
+            return res.status(500).json({ error: 'Sertifika (.p12) veya Mobileprovision dosyası bulunamadı!' });
+        }
 
         const extractDir = path.join(workDir, 'extracted');
         await fs.ensureDir(extractDir);
@@ -98,7 +134,7 @@ app.post('/api/sign', upload.fields([
             exec(`cd "${extractDir}" && zip -qr "${outputIpaPath}" Payload`, (err) => err ? reject(err) : resolve());
         });
 
-        // Geçici çalışma klasörünü temizle
+        // Temizlik
         await fs.remove(workDir);
 
         const downloadUrl = `${req.protocol}://${req.get('host')}/download/${outputIpaName}`;
