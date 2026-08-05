@@ -1,16 +1,21 @@
-# Pre-built zsign içeren hazır imaj
-FROM pxmx/zsign:latest AS zsign-provider
+FROM node:18-bullseye-slim
 
-FROM node:18-bullseye
-
-# zsign için gerekli çalışma zamanı kütüphaneleri
+# Derleme araçları ve kütüphaneleri yükle
 RUN apt-get update && apt-get install -y \
+    git \
+    g++ \
+    make \
     libssl-dev \
     libzip-dev \
+    zlib1g-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Hazır derlenmiş zsign ikilisini sistem klasörüne kopyala
-COPY --from=zsign-provider /usr/local/bin/zsign /usr/local/bin/zsign
+# zsign deposunun en kararlı sürümünü klonla ve derle
+RUN git clone --depth 1 https://github.com/zhlynn/zsign.git /tmp/zsign \
+    && cd /tmp/zsign \
+    && g++ main.cpp zsign.cpp bundle.cpp macho.cpp openssl.cpp plist.cpp sha.cpp signing.cpp -o zsign -lcrypto -lzip \
+    && mv zsign /usr/local/bin/ \
+    && rm -rf /tmp/zsign
 
 WORKDIR /usr/src/app
 
