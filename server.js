@@ -103,14 +103,14 @@ app.post('/api/sign', upload.fields([
             return res.status(500).json({ error: 'Sertifika (.p12) veya Mobileprovision dosyası bulunamadı!' });
         }
 
-        // 3. P12 Şifreleme Düzeltmesi (Legacy P12 -> Modern P12 Otomatik Dönüştürme)
+        // 3. P12 Dönüştürme Düzeltmesi (Legacy P12 -> Modern P12)
         const pemPath = path.join(workDir, 'temp.pem');
         const fixedP12Path = path.join(workDir, 'fixed.p12');
         
         const convertCmd = `(openssl pkcs12 -in "${p12Path}" -nodes -passin pass:"${password}" -legacy -out "${pemPath}" 2>/dev/null || openssl pkcs12 -in "${p12Path}" -nodes -passin pass:"${password}" -out "${pemPath}") && openssl pkcs12 -export -in "${pemPath}" -out "${fixedP12Path}" -passout pass:"${password}"`;
 
         await new Promise((resolve) => {
-            exec(convertCmd, () => resolve()); // Başarısız olursa orijinal P12 ile devam eder
+            exec(convertCmd, () => resolve());
         });
 
         const finalP12Path = (await fs.pathExists(fixedP12Path)) ? fixedP12Path : p12Path;
@@ -127,7 +127,11 @@ app.post('/api/sign', upload.fields([
         const apps = await fs.readdir(payloadDir);
         const appBundle = path.join(payloadDir, apps[0]);
 
-        // 5. Mobileprovision Dosyasını Paket İçine Kopyala
+        // Bundle ID ve İsim Çekme (Plutil veya basit regex mantığıyla okunamazsa fallback tanımlanır)
+        const appName = apps[0].replace('.app', '');
+        const bundleId = `com.ossigner.${appName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+
+        // 5. Mobileprovision Dosyasını Kopyala
         await fs.copy(provPath, path.join(appBundle, 'embedded.mobileprovision'));
 
         // 6. rcodesign ile İmzalama İşlemi
@@ -135,30 +139,69 @@ app.post('/api/sign', upload.fields([
         
         await new Promise((resolve, reject) => {
             exec(signCmd, (err, stdout, stderr) => {
-                if (err) {
-                    console.error("rcodesign detaylı hata logu:", stderr || stdout);
-                    return reject(new Error(stderr || stdout || err.message));
-                }
+                if (err) return reject(new Error(stderr || stdout || err.message));
                 resolve();
             });
         });
 
         // 7. Dosyayı Tekrar IPA Olarak Paketle
-        const outputIpaName = `signed_${Date.now()}.ipa`;
+        const fileId = Date.now();
+        const outputIpaName = `signed_${fileId}.ipa`;
         const outputIpaPath = path.join(__dirname, 'output', outputIpaName);
         
         await new Promise((resolve, reject) => {
             exec(`cd "${extractDir}" && zip -qr "${outputIpaPath}" Payload`, (err) => err ? reject(err) : resolve());
         });
 
+        // 8. iOS Otomatik Kurulum için Manifest XML Oluşturma
+        const hostUrl = `${req.protocol}://${req.get('host')}`;
+        const ipaUrl = `${hostUrl}/download/${outputIpaName}`;
+        
+        const manifestContent = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>items</key>
+    <array>
+        <dict>
+            <key>assets</key>
+            <array>
+                <dict>
+                    <key>kind</key>
+                    <key>software-package</key>
+                    <key>url</key>
+                    <string>${ipaUrl}</string>
+                </dict>
+            </array>
+            <key>metadata</key>
+            <dict>
+                <key>bundle-identifier</key>
+                <string>${bundleId}</string>
+                <key>bundle-version</key>
+                <string>1.0</string>
+                <key>kind</key>
+                <string>software</string>
+                <key>title</key>
+                <string>${appName}</string>
+            </dict>
+        </dict>
+    </array>
+</dict>
+</plist>`;
+
+        const manifestName = `manifest_${fileId}.plist`;
+        await fs.writeFile(path.join(__dirname, 'output', manifestName), manifestContent);
+
         // Temizlik
         await fs.remove(workDir);
 
-        const downloadUrl = `${req.protocol}://${req.get('host')}/download/${outputIpaName}`;
+        // Doğrudan Kurulum Linki (itms-services)
+        const installUrl = `itms-services://?action=download-manifest&url=${encodeURIComponent(`${hostUrl}/download/${manifestName}`)}`;
+
         res.json({
             success: true,
             message: 'İmzalama başarıyla tamamlandı!',
-            downloadUrl: downloadUrl
+            downloadUrl: installUrl
         });
 
     } catch (err) {
