@@ -1,6 +1,5 @@
 FROM node:18-bullseye-slim
 
-# applesign'ın ihtiyaç duyduğu Temel sistem araçları (Derleme gerektirmez)
 RUN apt-get update && apt-get install -y \
     zip \
     unzip \
