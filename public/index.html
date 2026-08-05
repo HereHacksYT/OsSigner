@@ -1,270 +1,118 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IPA Sideload & Sign</title>
-  <style>
-    body {
-      background: #0d0d0d url('background.jpg') no-repeat center center fixed;
-      background-size: cover;
-      color: #fff;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      margin: 0;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
-    }
-
-    .container {
-      width: 100%;
-      max-width: 500px;
-      background: rgba(20, 20, 20, 0.85);
-      backdrop-filter: blur(10px);
-      border-radius: 16px;
-      padding: 24px;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      margin-bottom: 20px;
-    }
-
-    h1, h2 {
-      text-align: center;
-      margin-top: 0;
-    }
-
-    .form-group {
-      margin-bottom: 16px;
-    }
-
-    label {
-      display: block;
-      margin-bottom: 6px;
-      font-size: 14px;
-      color: #ccc;
-    }
-
-    input[type="file"],
-    input[type="text"],
-    input[type="password"],
-    input[type="url"] {
-      width: 100%;
-      padding: 10px;
-      background: rgba(40, 40, 40, 0.8);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      border-radius: 8px;
-      color: #fff;
-      box-sizing: border-box;
-    }
-
-    button {
-      width: 100%;
-      padding: 12px;
-      background: #007aff;
-      border: none;
-      border-radius: 8px;
-      color: #fff;
-      font-weight: bold;
-      font-size: 16px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-
-    button:hover {
-      background: #0056b3;
-    }
-
-    .divider {
-      text-align: center;
-      margin: 12px 0;
-      color: #777;
-      font-size: 12px;
-    }
-
-    .app-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-      gap: 12px;
-      margin-top: 10px;
-    }
-
-    .app-card {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 12px;
-      padding: 12px;
-      text-align: center;
-      cursor: pointer;
-      transition: transform 0.2s, background 0.2s;
-    }
-
-    .app-card:hover {
-      transform: translateY(-2px);
-      background: rgba(255, 255, 255, 0.15);
-    }
-
-    .app-card img {
-      width: 48px;
-      height: 48px;
-      border-radius: 10px;
-      margin-bottom: 6px;
-    }
-
-    .app-card span {
-      display: block;
-      font-size: 12px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    #status {
-      margin-top: 16px;
-      text-align: center;
-      font-size: 14px;
-      word-break: break-word;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OsSigner - IPA İmzalayıcı</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #121212; color: #fff; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .container { max-width: 500px; width: 100%; background: #1e1e1e; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        h1 { text-align: center; margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-size: 14px; color: #bbb; }
+        input[type="text"], input[type="file"] { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #333; background: #2a2a2a; color: #fff; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 6px; background: #007bff; color: white; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 10px; }
+        button:disabled { background: #555; }
+        #status { margin-top: 15px; text-align: center; font-weight: bold; }
+        .error { color: #ff4d4d; }
+        .success { color: #28a745; }
+        a.download-btn { display: block; text-align: center; margin-top: 10px; background: #28a745; color: white; padding: 10px; text-decoration: none; border-radius: 6px; font-weight: bold; }
+    </style>
 </head>
 <body>
 
-  <div class="container">
-    <h1>IPA İmzalama</h1>
+<div class="container">
+    <h1>OsSigner</h1>
+    
     <form id="signForm">
-      <div class="form-group">
-        <label>IPA Dosyası Seç</label>
-        <input type="file" id="ipaFile" accept=".ipa">
-      </div>
+        <div class="form-group">
+            <label>IPA Dosyası Seç</label>
+            <input type="file" id="ipaFile" accept=".ipa">
+        </div>
 
-      <div class="divider">VEYA DIREKT URL GIRIN</div>
+        <div class="form-group">
+            <label>VEYA Direkt URL Girin</label>
+            <input type="text" id="ipaUrl" placeholder="https://example.com/file.ipa">
+        </div>
 
-      <div class="form-group">
-        <label>IPA İndirme Bağlantısı (URL)</label>
-        <input type="url" id="ipaUrl" placeholder="https://site.com/uygulama.ipa">
-      </div>
+        <div class="form-group">
+            <label>Özel Sertifika (.p12) [Opsiyonel]</label>
+            <input type="file" id="p12File" accept=".p12">
+        </div>
 
-      <hr style="border-color: rgba(255,255,255,0.1); margin: 20px 0;">
+        <div class="form-group">
+            <label>Sertifika Şifresi</label>
+            <input type="text" id="password" placeholder="Varsayılan: NexCerts">
+        </div>
 
-      <div class="form-group">
-        <label>Özel Sertifika (.p12) [Opsiyonel]</label>
-        <input type="file" id="certFile" accept=".p12">
-      </div>
+        <div class="form-group">
+            <label>Mobil Provision (.mobileprovision) [Opsiyonel]</label>
+            <input type="file" id="provFile" accept=".mobileprovision">
+        </div>
 
-      <div class="form-group">
-        <label>Sertifika Şifresi</label>
-        <input type="password" id="password" placeholder="Varsayılan: NexCerts">
-      </div>
-
-      <div class="form-group">
-        <label>Mobil Provision (.mobileprovision) [Opsiyonel]</label>
-        <input type="file" id="provFile" accept=".mobileprovision">
-      </div>
-
-      <button type="submit">İmzala ve Hazırla</button>
+        <button type="submit" id="submitBtn">İmzala ve Hazırla</button>
     </form>
+
     <div id="status"></div>
-  </div>
+</div>
 
-  <div class="container">
-    <h2>Uygulama Mağazası</h2>
-    <div class="app-grid">
-      <!-- Verilen Dropbox linki entegre edildi -->
-      <div class="app-card" onclick="selectAndSignApp('https://www.dropbox.com/scl/fi/awnz7l5c6aw279wdcllxx/Subway-Surf-Hacked-OsmanBurda.ipa?rlkey=27lhqxfrl525wj7haelwh5ett&st=pd5qs7ou&e=1&dl=1')">
-        <img src="https://via.placeholder.com/48" alt="Subway Surfers">
-        <span>Subway Surfers</span>
-      </div>
-    </div>
-  </div>
+<script>
+document.getElementById('signForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
 
-  <script>
-    // Mağazadaki karta basınca OTOMATİK İNDİR VE İMZALA fonksiyonu
-    async function selectAndSignApp(url) {
-      document.getElementById('ipaUrl').value = url;
-      document.getElementById('ipaFile').value = '';
-      
-      const statusDiv = document.getElementById('status');
-      statusDiv.style.color = '#fff';
-      statusDiv.innerText = 'Uygulama sunucuya indiriliyor ve imzalanıyor, lütfen bekleyin...';
+    const submitBtn = document.getElementById('submitBtn');
+    const statusDiv = document.getElementById('status');
+    
+    const ipaFile = document.getElementById('ipaFile').files[0];
+    const ipaUrl = document.getElementById('ipaUrl').value.trim();
+    const p12File = document.getElementById('p12File').files[0];
+    const password = document.getElementById('password').value.trim();
+    const provFile = document.getElementById('provFile').files[0];
 
-      const formData = new FormData();
-      formData.append('ipaUrl', url);
-
-      const certFile = document.getElementById('certFile').files[0];
-      const provFile = document.getElementById('provFile').files[0];
-      const password = document.getElementById('password').value;
-
-      if (certFile) formData.append('cert', certFile);
-      if (provFile) formData.append('provision', provFile);
-      if (password) formData.append('password', password);
-
-      try {
-        const response = await fetch('/sign', {
-          method: 'POST',
-          body: formData
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-          statusDiv.style.color = '#4cd964';
-          statusDiv.innerHTML = `${data.message} <br><a href="${data.downloadUrl}" style="color:#007aff; font-weight:bold;">[ İmzalı IPA'yı İndir ]</a>`;
-        } else {
-          statusDiv.style.color = '#ff3b30';
-          statusDiv.innerText = `Hata: ${data.error} ${data.details || ''}`;
-        }
-      } catch (err) {
-        statusDiv.style.color = '#ff3b30';
-        statusDiv.innerText = 'Sunucuyla bağlantı kurulamadı.';
-      }
+    if (!ipaFile && !ipaUrl) {
+        statusDiv.className = 'error';
+        statusDiv.innerText = 'Lütfen bir IPA dosyası seçin veya bir URL girin.';
+        return;
     }
 
-    // Form manuel gönderildiğinde çalışan fonksiyon
-    document.getElementById('signForm').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const ipaFile = document.getElementById('ipaFile').files[0];
-      const ipaUrl = document.getElementById('ipaUrl').value;
+    const formData = new FormData();
+    if (ipaFile) formData.append('ipa', ipaFile);
+    if (ipaUrl) formData.append('ipaUrl', ipaUrl);
+    if (p12File) formData.append('p12', p12File);
+    if (password) formData.append('password', password);
+    if (provFile) formData.append('mobileprovision', provFile);
 
-      if (ipaUrl && !ipaFile) {
-        selectAndSignApp(ipaUrl);
-        return;
-      }
+    submitBtn.disabled = true;
+    statusDiv.className = '';
+    statusDiv.innerText = 'İmzalanıyor, lütfen bekleyin...';
 
-      const statusDiv = document.getElementById('status');
-      statusDiv.style.color = '#fff';
-      statusDiv.innerText = 'İşlem başlatılıyor...';
-
-      const formData = new FormData();
-      const certFile = document.getElementById('certFile').files[0];
-      const provFile = document.getElementById('provFile').files[0];
-      const password = document.getElementById('password').value;
-
-      if (ipaFile) formData.append('ipa', ipaFile);
-      if (certFile) formData.append('cert', certFile);
-      if (provFile) formData.append('provision', provFile);
-      if (password) formData.append('password', password);
-
-      try {
-        const response = await fetch('/sign', {
-          method: 'POST',
-          body: formData
+    try {
+        // Doğrudan mevcuttaki domaine istek atar
+        const response = await fetch('/api/sign', {
+            method: 'POST',
+            body: formData
         });
 
         const data = await response.json();
 
-        if (response.ok) {
-          statusDiv.style.color = '#4cd964';
-          statusDiv.innerHTML = `${data.message} <br><a href="${data.downloadUrl}" style="color:#007aff; font-weight:bold;">[ İmzalı IPA'yı İndir ]</a>`;
+        if (response.ok && data.success) {
+            statusDiv.className = 'success';
+            statusDiv.innerHTML = `
+                <p>${data.message}</p>
+                <a href="${data.downloadUrl}" class="download-btn" target="_blank">İmzalı IPA'yı İndir</a>
+            `;
         } else {
-          statusDiv.style.color = '#ff3b30';
-          statusDiv.innerText = `Hata: ${data.error} ${data.details || ''}`;
+            statusDiv.className = 'error';
+            statusDiv.innerText = 'Hata: ' + (data.error || 'İmzalama başarısız.');
         }
-      } catch (err) {
-        statusDiv.style.color = '#ff3b30';
+    } catch (err) {
+        statusDiv.className = 'error';
         statusDiv.innerText = 'Sunucuyla bağlantı kurulamadı.';
-      }
-    });
-  </script>
+    } finally {
+        submitBtn.disabled = false;
+    }
+});
+</script>
+
 </body>
 </html>
