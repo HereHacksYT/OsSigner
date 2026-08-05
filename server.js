@@ -37,7 +37,7 @@ const downloadFile = (url, targetPath) => {
     });
 };
 
-// certs/ klasöründeki dosyaları otomatik tespit eden yardımcı fonksiyon
+// certs/ klasöründeki dosyaları otomatik tespit eden fonksiyon
 const getDefaultCertFiles = async () => {
     const certsDir = path.join(__dirname, 'certs');
     let p12Path = '';
@@ -47,7 +47,6 @@ const getDefaultCertFiles = async () => {
     if (await fs.pathExists(certsDir)) {
         const files = await fs.readdir(certsDir);
         
-        // Klasördeki .p12 ve .mobileprovision uzantılı ilk dosyaları bulur
         const p12File = files.find(f => f.endsWith('.p12'));
         const provFile = files.find(f => f.endsWith('.mobileprovision'));
         const passFile = files.find(f => f === 'password.txt');
@@ -55,7 +54,6 @@ const getDefaultCertFiles = async () => {
         if (p12File) p12Path = path.join(certsDir, p12File);
         if (provFile) provPath = path.join(certsDir, provFile);
         
-        // password.txt varsa şifreyi oradan okur
         if (passFile) {
             const content = await fs.readFile(path.join(certsDir, passFile), 'utf-8');
             if (content.trim()) {
@@ -88,7 +86,7 @@ app.post('/api/sign', upload.fields([
             return res.status(400).json({ error: 'Lütfen bir IPA dosyası yükleyin veya geçerli bir URL girin.' });
         }
 
-        // 2. Varsayılan Sertifika Bilgilerini Otomatik Tara
+        // 2. Varsayılan Sertifika Bilgilerini Taraması
         const defaultCerts = await getDefaultCertFiles();
 
         const p12Path = (req.files && req.files.p12) 
@@ -121,9 +119,17 @@ app.post('/api/sign', upload.fields([
         await fs.copy(provPath, path.join(appBundle, 'embedded.mobileprovision'));
 
         // 5. rcodesign ile İmzalama İşlemi
-        const signCmd = `rcodesign sign --p12-file "${p12Path}" --p12-password "${password}" "${appBundle}"`;
+        const certPassword = password || '';
+        const signCmd = `rcodesign sign --p12-file "${p12Path}" --p12-password "${certPassword}" "${appBundle}"`;
+        
         await new Promise((resolve, reject) => {
-            exec(signCmd, (err, stdout, stderr) => err ? reject(new Error(stderr || err.message)) : resolve());
+            exec(signCmd, (err, stdout, stderr) => {
+                if (err) {
+                    console.error("rcodesign detaylı hata logu:", stderr || stdout);
+                    return reject(new Error(stderr || stdout || err.message));
+                }
+                resolve();
+            });
         });
 
         // 6. Dosyayı Tekrar IPA Olarak Paketle
