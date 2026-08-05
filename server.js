@@ -103,7 +103,7 @@ app.post('/api/sign', upload.fields([
             return res.status(500).json({ error: 'Sertifika (.p12) veya Mobileprovision dosyası bulunamadı!' });
         }
 
-        // 3. P12 Dönüştürme Düzeltmesi (Legacy P12 -> Modern P12)
+        // 3. P12 Şifreleme Düzeltmesi (Legacy P12 -> Modern P12)
         const pemPath = path.join(workDir, 'temp.pem');
         const fixedP12Path = path.join(workDir, 'fixed.p12');
         
@@ -127,7 +127,6 @@ app.post('/api/sign', upload.fields([
         const apps = await fs.readdir(payloadDir);
         const appBundle = path.join(payloadDir, apps[0]);
 
-        // Bundle ID ve İsim Çekme (Plutil veya basit regex mantığıyla okunamazsa fallback tanımlanır)
         const appName = apps[0].replace('.app', '');
         const bundleId = `com.ossigner.${appName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 
@@ -153,10 +152,11 @@ app.post('/api/sign', upload.fields([
             exec(`cd "${extractDir}" && zip -qr "${outputIpaPath}" Payload`, (err) => err ? reject(err) : resolve());
         });
 
-        // 8. iOS Otomatik Kurulum için Manifest XML Oluşturma
+        // 8. Dış Güvenilir Plist Proxy Üzerinden OTA Bağlantısı Oluşturma
         const hostUrl = `${req.protocol}://${req.get('host')}`;
         const ipaUrl = `${hostUrl}/download/${outputIpaName}`;
-        
+        const rawPlistUrl = `${hostUrl}/download/manifest_${fileId}.plist`;
+
         const manifestContent = `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -195,8 +195,9 @@ app.post('/api/sign', upload.fields([
         // Temizlik
         await fs.remove(workDir);
 
-        // Doğrudan Kurulum Linki (itms-services)
-        const installUrl = `itms-services://?action=download-manifest&url=${encodeURIComponent(`${hostUrl}/download/${manifestName}`)}`;
+        // Apple uyumlu dış SSL tüneli üzerinden itms bağlama
+        const externalPlistService = `https://plist.services/?url=${encodeURIComponent(rawPlistUrl)}`;
+        const installUrl = `itms-services://?action=download-manifest&url=${encodeURIComponent(externalPlistService)}`;
 
         res.json({
             success: true,
