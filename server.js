@@ -9,6 +9,9 @@ const http = require('http');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
+// Render Proxy arkasında çalıştığı için HTTPS algılamasını aktif ediyoruz
+app.set('trust proxy', true);
+
 app.use(express.json());
 app.use(express.static('public'));
 
@@ -152,8 +155,9 @@ app.post('/api/sign', upload.fields([
             exec(`cd "${extractDir}" && zip -qr "${outputIpaPath}" Payload`, (err) => err ? reject(err) : resolve());
         });
 
-        // 8. Plist Dosyası Oluşturma
-        const hostUrl = `${req.protocol}://${req.get('host')}`;
+        // 8. HTTPS ZORUNLU Bağlantı Oluşturma
+        // ZORUNLU HTTPS: Apple itms-services için http kabul etmez!
+        const hostUrl = `https://${req.get('host')}`;
         const ipaUrl = `${hostUrl}/download/${outputIpaName}`;
         const rawPlistUrl = `${hostUrl}/download/manifest_${fileId}.plist`;
 
@@ -194,7 +198,7 @@ app.post('/api/sign', upload.fields([
 
         await fs.remove(workDir);
 
-        // Hem Doğrudan İndirme Linki Hem de OTA Kurulum Linki
+        // Apple OTA Yükleme Bağlantısı
         const installUrl = `itms-services://?action=download-manifest&url=${encodeURIComponent(rawPlistUrl)}`;
 
         res.json({
@@ -211,7 +215,7 @@ app.post('/api/sign', upload.fields([
     }
 });
 
-// iOS MIME Type Uyumlu Statik Dosya Sunumu
+// iOS Statik Dosya Sunumu (HTTPS İle Uygun Header'lar)
 app.use('/download', express.static(path.join(__dirname, 'output'), {
     setHeaders: (res, filePath) => {
         if (filePath.endsWith('.plist')) {
