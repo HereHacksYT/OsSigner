@@ -136,8 +136,8 @@ app.post('/api/sign', upload.fields([
         // 5. Mobileprovision Dosyasını Uygulamaya Kopyala
         await fs.copy(provPath, path.join(appBundle, 'embedded.mobileprovision'));
 
-        // 6. rcodesign ile Tam İmzalama (Provisioning Profile ve Entitlements Entegrasyonu)
-        const signCmd = `rcodesign sign --p12-file "${finalP12Path}" --p12-password "${password}" --provisioning-profile "${provPath}" "${appBundle}"`;
+        // 6. rcodesign ile Tam İmzalama (--profile-file parametresiyle)
+        const signCmd = `rcodesign sign --p12-file "${finalP12Path}" --p12-password "${password}" --profile-file "${provPath}" "${appBundle}"`;
         
         await new Promise((resolve, reject) => {
             exec(signCmd, (err, stdout, stderr) => {
@@ -225,4 +225,4 @@ app.use('/download', express.static(path.join(__dirname, 'output'), {
     }
 }));
 
-app.listen(PORT, () => console.log(`Sunucu ${PORT} portunda aktif.`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
