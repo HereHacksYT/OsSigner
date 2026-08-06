@@ -226,4 +226,3 @@ app.use('/download', express.static(path.join(__dirname, 'output'), {
 }));
 
 app.listen(PORT, () => console.log(`Sunucu ${PORT} portunda aktif.`));
-ü
