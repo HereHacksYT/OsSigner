@@ -3,27 +3,137 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OsSigner - IPA İmzalayıcı</title>
+    <title>OsSigner - IPA İmzalama Servisi</title>
     <style>
-        body { font-family: Arial, sans-serif; background: #121212; color: #fff; margin: 0; padding: 20px; display: flex; justify-content: center; }
-        .container { max-width: 500px; width: 100%; background: #1e1e1e; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        h1 { text-align: center; margin-bottom: 20px; }
-        .form-group { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-size: 14px; color: #bbb; }
-        input[type="text"], input[type="file"] { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #333; background: #2a2a2a; color: #fff; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; border: none; border-radius: 6px; background: #007bff; color: white; font-weight: bold; cursor: pointer; font-size: 16px; margin-top: 10px; }
-        button:disabled { background: #555; }
-        #status { margin-top: 15px; text-align: center; font-weight: bold; }
-        .error { color: #ff4d4d; }
-        .success { color: #28a745; }
-        a.download-btn { display: block; text-align: center; margin-top: 10px; background: #28a745; color: white; padding: 10px; text-decoration: none; border-radius: 6px; font-weight: bold; }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: #121212;
+            color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            background-color: #1e1e1e;
+            width: 100%;
+            max-width: 480px;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 28px;
+            margin-bottom: 24px;
+            color: #ffffff;
+        }
+
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        label {
+            display: block;
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: #aaa;
+        }
+
+        input[type="file"],
+        input[type="url"],
+        input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            background-color: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+        }
+
+        input[type="file"]::file-selector-button {
+            background-color: #3a3a3a;
+            color: #fff;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: background 0.2s;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background-color: #007aff;
+            color: #fff;
+        }
+
+        .btn-primary:disabled {
+            background-color: #444;
+            cursor: not-allowed;
+        }
+
+        .btn-success {
+            background-color: #34c759;
+            color: #fff;
+        }
+
+        .btn-secondary {
+            background-color: #5856d6;
+            color: #fff;
+        }
+
+        #status {
+            margin-top: 16px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .success-text {
+            color: #34c759;
+        }
+
+        .error-text {
+            color: #ff3b30;
+        }
+
+        .action-buttons {
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 15px;
+        }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h1>OsSigner</h1>
-    
+
     <form id="signForm">
         <div class="form-group">
             <label>IPA Dosyası Seç</label>
@@ -32,7 +142,7 @@
 
         <div class="form-group">
             <label>VEYA Direkt URL Girin</label>
-            <input type="text" id="ipaUrl" placeholder="https://example.com/file.ipa">
+            <input type="url" id="ipaUrl" placeholder="https://example.com/file.ipa">
         </div>
 
         <div class="form-group">
@@ -41,77 +151,85 @@
         </div>
 
         <div class="form-group">
-            <label>Sertifika Şifresi</label>
-            <input type="text" id="password" placeholder="Varsayılan: NexCerts">
-        </div>
-
-        <div class="form-group">
-            <label>Mobil Provision (.mobileprovision) [Opsiyonel]</label>
+            <label>Mobil Provision [Opsiyonel]</label>
             <input type="file" id="provFile" accept=".mobileprovision">
         </div>
 
-        <button type="submit" id="submitBtn">İmzala ve Hazırla</button>
+        <div class="form-group">
+            <label>Sertifika Şifresi [Opsiyonel]</label>
+            <input type="password" id="certPassword" placeholder="Şifre (Varsayılan: NexCerts)">
+        </div>
+
+        <button type="submit" id="submitBtn" class="btn btn-primary">İmzala ve Hazırla</button>
     </form>
 
     <div id="status"></div>
+
+    <div id="actionButtons" class="action-buttons">
+        <a id="otaBtn" href="#" class="btn btn-success">Doğrudan Telefona Yükle (OTA)</a>
+        <a id="downloadBtn" href="#" class="btn btn-secondary">İmzalı IPA'yı İndir</a>
+    </div>
 </div>
 
 <script>
-document.getElementById('signForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const submitBtn = document.getElementById('submitBtn');
+    const form = document.getElementById('signForm');
     const statusDiv = document.getElementById('status');
-    
-    const ipaFile = document.getElementById('ipaFile').files[0];
-    const ipaUrl = document.getElementById('ipaUrl').value.trim();
-    const p12File = document.getElementById('p12File').files[0];
-    const password = document.getElementById('password').value.trim();
-    const provFile = document.getElementById('provFile').files[0];
+    const actionButtons = document.getElementById('actionButtons');
+    const otaBtn = document.getElementById('otaBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const submitBtn = document.getElementById('submitBtn');
 
-    if (!ipaFile && !ipaUrl) {
-        statusDiv.className = 'error';
-        statusDiv.innerText = 'Lütfen bir IPA dosyası seçin veya bir URL girin.';
-        return;
-    }
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        statusDiv.className = '';
+        statusDiv.innerText = 'İmzalama işlemi yapılıyor, lütfen bekleyin...';
+        actionButtons.style.display = 'none';
+        submitBtn.disabled = true;
 
-    const formData = new FormData();
-    if (ipaFile) formData.append('ipa', ipaFile);
-    if (ipaUrl) formData.append('ipaUrl', ipaUrl);
-    if (p12File) formData.append('p12', p12File);
-    if (password) formData.append('password', password);
-    if (provFile) formData.append('mobileprovision', provFile);
+        const formData = new FormData();
+        const ipaFile = document.getElementById('ipaFile').files[0];
+        const ipaUrl = document.getElementById('ipaUrl').value;
+        const p12File = document.getElementById('p12File').files[0];
+        const provFile = document.getElementById('provFile').files[0];
+        const password = document.getElementById('certPassword').value;
 
-    submitBtn.disabled = true;
-    statusDiv.className = '';
-    statusDiv.innerText = 'İmzalanıyor, lütfen bekleyin...';
+        if (ipaFile) formData.append('ipa', ipaFile);
+        if (ipaUrl) formData.append('ipaUrl', ipaUrl);
+        if (p12File) formData.append('p12', p12File);
+        if (provFile) formData.append('mobileprovision', provFile);
+        if (password) formData.append('password', password);
 
-    try {
-        // Doğrudan mevcuttaki domaine istek atar
-        const response = await fetch('/api/sign', {
-            method: 'POST',
-            body: formData
-        });
+        try {
+            const response = await fetch('/api/sign', {
+                method: 'POST',
+                body: formData
+            });
 
-        const data = await response.json();
+            const result = await response.json();
 
-        if (response.ok && data.success) {
-            statusDiv.className = 'success';
-            statusDiv.innerHTML = `
-                <p>${data.message}</p>
-                <a href="${data.downloadUrl}" class="download-btn" target="_blank">İmzalı IPA'yı İndir</a>
-            `;
-        } else {
-            statusDiv.className = 'error';
-            statusDiv.innerText = 'Hata: ' + (data.error || 'İmzalama başarısız.');
+            if (result.success) {
+                statusDiv.className = 'success-text';
+                statusDiv.innerText = 'İmzalama başarıyla tamamlandı!';
+                
+                otaBtn.href = result.installUrl;
+                downloadBtn.href = result.directDownloadUrl;
+                
+                actionButtons.style.display = 'flex';
+
+                // Otomatik OTA yükleme denemesi başlatır
+                window.location.href = result.installUrl;
+            } else {
+                statusDiv.className = 'error-text';
+                statusDiv.innerText = result.error || 'İmzalama sırasında bir hata oluştu.';
+            }
+        } catch (err) {
+            statusDiv.className = 'error-text';
+            statusDiv.innerText = 'Sunucu ile bağlantı kurulamadı.';
+        } finally {
+            submitBtn.disabled = false;
         }
-    } catch (err) {
-        statusDiv.className = 'error';
-        statusDiv.innerText = 'Sunucuyla bağlantı kurulamadı.';
-    } finally {
-        submitBtn.disabled = false;
-    }
-});
+    });
 </script>
 
 </body>
