@@ -110,7 +110,7 @@ app.post('/api/sign', upload.fields([
         const pemPath = path.join(workDir, 'temp.pem');
         const fixedP12Path = path.join(workDir, 'fixed.p12');
         
-        const convertCmd = `(openssl pkcs12 -in "${p12Path}" -nodes -passin pass:"${password}" -legacy -out "${pemPath}" 2>/dev/null || openssl pkcs12 -in "${p12Path}" -nodes -passin pass:"${password}" -out "${pemPath}") && openssl pkcs12 -export -in "${pemPath}" -out "${fixedP12Path}" -passout pass:"${password}"`;
+        const convertCmd = `(openssl pkcs12 -in "${p12Path}" -nodes -passin pass:"${password}" -legacy -out "${pemPath}" 2>/devnull || openssl pkcs12 -in "${p12Path}" -nodes -passin pass:"${password}" -out "${pemPath}") && openssl pkcs12 -export -in "${pemPath}" -out "${fixedP12Path}" -passout pass:"${password}"`;
 
         await new Promise((resolve) => {
             exec(convertCmd, () => resolve());
@@ -133,11 +133,11 @@ app.post('/api/sign', upload.fields([
         const appName = apps[0].replace('.app', '');
         const bundleId = `com.ossigner.${appName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
 
-        // 5. Mobileprovision Dosyasını Kopyala
+        // 5. Mobileprovision Dosyasını Uygulamaya Kopyala
         await fs.copy(provPath, path.join(appBundle, 'embedded.mobileprovision'));
 
-        // 6. rcodesign ile İmzalama
-        const signCmd = `rcodesign sign --p12-file "${finalP12Path}" --p12-password "${password}" "${appBundle}"`;
+        // 6. rcodesign ile Tam İmzalama (Provisioning Profile ve Entitlements Entegrasyonu)
+        const signCmd = `rcodesign sign --p12-file "${finalP12Path}" --p12-password "${password}" --provisioning-profile "${provPath}" "${appBundle}"`;
         
         await new Promise((resolve, reject) => {
             exec(signCmd, (err, stdout, stderr) => {
@@ -146,7 +146,7 @@ app.post('/api/sign', upload.fields([
             });
         });
 
-        // 7. Tekrar IPA Yap
+        // 7. Tekrar IPA Paketle
         const fileId = Date.now();
         const outputIpaName = `signed_${fileId}.ipa`;
         const outputIpaPath = path.join(__dirname, 'output', outputIpaName);
@@ -155,8 +155,7 @@ app.post('/api/sign', upload.fields([
             exec(`cd "${extractDir}" && zip -qr "${outputIpaPath}" Payload`, (err) => err ? reject(err) : resolve());
         });
 
-        // 8. HTTPS ZORUNLU Bağlantı Oluşturma
-        // ZORUNLU HTTPS: Apple itms-services için http kabul etmez!
+        // 8. HTTPS ZORUNLU OTA Bağlantısı Oluşturma
         const hostUrl = `https://${req.get('host')}`;
         const ipaUrl = `${hostUrl}/download/${outputIpaName}`;
         const rawPlistUrl = `${hostUrl}/download/manifest_${fileId}.plist`;
@@ -198,7 +197,7 @@ app.post('/api/sign', upload.fields([
 
         await fs.remove(workDir);
 
-        // Apple OTA Yükleme Bağlantısı
+        // Apple OTA Bağlantısı
         const installUrl = `itms-services://?action=download-manifest&url=${encodeURIComponent(rawPlistUrl)}`;
 
         res.json({
@@ -215,7 +214,7 @@ app.post('/api/sign', upload.fields([
     }
 });
 
-// iOS Statik Dosya Sunumu (HTTPS İle Uygun Header'lar)
+// iOS Uyumlu Statik Dosya Sunumu
 app.use('/download', express.static(path.join(__dirname, 'output'), {
     setHeaders: (res, filePath) => {
         if (filePath.endsWith('.plist')) {
@@ -227,3 +226,4 @@ app.use('/download', express.static(path.join(__dirname, 'output'), {
 }));
 
 app.listen(PORT, () => console.log(`Sunucu ${PORT} portunda aktif.`));
+ü
