@@ -86,7 +86,7 @@ app.post('/api/sign', upload.fields([
             return res.status(400).json({ error: 'Lütfen bir IPA dosyası yükleyin veya geçerli bir URL girin.' });
         }
 
-        // 2. Varsayılan Sertifika Bilgilerini Taraması
+        // 2. Varsayılan Sertifika Bilgileri
         const defaultCerts = await getDefaultCertFiles();
 
         const p12Path = (req.files && req.files.p12) 
@@ -103,7 +103,7 @@ app.post('/api/sign', upload.fields([
             return res.status(500).json({ error: 'Sertifika (.p12) veya Mobileprovision dosyası bulunamadı!' });
         }
 
-        // 3. P12 Şifreleme Düzeltmesi (Legacy P12 -> Modern P12)
+        // 3. P12 Şifreleme Dönüştürmesi (Legacy -> Modern)
         const pemPath = path.join(workDir, 'temp.pem');
         const fixedP12Path = path.join(workDir, 'fixed.p12');
         
@@ -133,7 +133,7 @@ app.post('/api/sign', upload.fields([
         // 5. Mobileprovision Dosyasını Kopyala
         await fs.copy(provPath, path.join(appBundle, 'embedded.mobileprovision'));
 
-        // 6. rcodesign ile İmzalama İşlemi
+        // 6. rcodesign ile İmzalama
         const signCmd = `rcodesign sign --p12-file "${finalP12Path}" --p12-password "${password}" "${appBundle}"`;
         
         await new Promise((resolve, reject) => {
@@ -143,7 +143,7 @@ app.post('/api/sign', upload.fields([
             });
         });
 
-        // 7. Dosyayı Tekrar IPA Olarak Paketle
+        // 7. Tekrar IPA Yap
         const fileId = Date.now();
         const outputIpaName = `signed_${fileId}.ipa`;
         const outputIpaPath = path.join(__dirname, 'output', outputIpaName);
@@ -152,7 +152,7 @@ app.post('/api/sign', upload.fields([
             exec(`cd "${extractDir}" && zip -qr "${outputIpaPath}" Payload`, (err) => err ? reject(err) : resolve());
         });
 
-        // 8. Dış Güvenilir Plist Proxy Üzerinden OTA Bağlantısı Oluşturma
+        // 8. Plist Dosyası Oluşturma
         const hostUrl = `${req.protocol}://${req.get('host')}`;
         const ipaUrl = `${hostUrl}/download/${outputIpaName}`;
         const rawPlistUrl = `${hostUrl}/download/manifest_${fileId}.plist`;
@@ -192,17 +192,16 @@ app.post('/api/sign', upload.fields([
         const manifestName = `manifest_${fileId}.plist`;
         await fs.writeFile(path.join(__dirname, 'output', manifestName), manifestContent);
 
-        // Temizlik
         await fs.remove(workDir);
 
-        // Apple uyumlu dış SSL tüneli üzerinden itms bağlama
-        const externalPlistService = `https://plist.services/?url=${encodeURIComponent(rawPlistUrl)}`;
-        const installUrl = `itms-services://?action=download-manifest&url=${encodeURIComponent(externalPlistService)}`;
+        // Hem Doğrudan İndirme Linki Hem de OTA Kurulum Linki
+        const installUrl = `itms-services://?action=download-manifest&url=${encodeURIComponent(rawPlistUrl)}`;
 
         res.json({
             success: true,
             message: 'İmzalama başarıyla tamamlandı!',
-            downloadUrl: installUrl
+            directDownloadUrl: ipaUrl,
+            installUrl: installUrl
         });
 
     } catch (err) {
@@ -212,6 +211,15 @@ app.post('/api/sign', upload.fields([
     }
 });
 
-app.use('/download', express.static(path.join(__dirname, 'output')));
+// iOS MIME Type Uyumlu Statik Dosya Sunumu
+app.use('/download', express.static(path.join(__dirname, 'output'), {
+    setHeaders: (res, filePath) => {
+        if (filePath.endsWith('.plist')) {
+            res.setHeader('Content-Type', 'text/xml');
+        } else if (filePath.endsWith('.ipa')) {
+            res.setHeader('Content-Type', 'application/octet-stream');
+        }
+    }
+}));
 
 app.listen(PORT, () => console.log(`Sunucu ${PORT} portunda aktif.`));
